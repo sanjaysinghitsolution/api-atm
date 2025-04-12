@@ -1787,17 +1787,21 @@ const sendProposalMail = async (user) => {
 
 const sendProposalMailFromUser = async (user, manager) => {
   const transporter = nodemailer.createTransport({
-    host: "smtp.hostinger.com", // Use Hostinger's SMTP server
-    port: 465, // SSL/TLS secure port
-    secure: true, // true for 465, false for 587
+    host: "smtp.hostinger.com",
+    port: 465,
+    secure: true,
     auth: {
-      user: "hello@findiatm.net", // Your email address
-      pass: "Sanjay@9523" // Your email password (keep secure)
+        user: "feedback@findiatm.net",
+        pass: "Sanjay@9523"
     },
-  });
-
+    tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3' // Try forcing a specific cipher
+    }
+});
+ 
   const mailOptions = {
-    from: '"Valmo Logistics" <hello@findiatm.net>',
+    from: ' " Indicash ATM " feedback@findiatm.net',
     to: user.email,
     subject: `📢 Opportunity to Host a FINDI ATM on Your Property – Earn ₹25,000/Month | Approved for PIN
      ${user.pincodes.map((details, idx) => ` 
@@ -1952,7 +1956,7 @@ const sendProposalMailFromUser = async (user, manager) => {
         </div>
      <div class="section" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
     <h2 class="section-title" style="margin: 0 0 10px 0; font-size: 18px; color: #333;">📩 Want to Apply? Fill the form here:</h2>
-    <a href="http://127.0.0.1:5500/mailedForm.html?id=${manager.unique_code}" style="display: inline-block; padding: 8px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Click Here</a>
+    <a href="https://findiatm.net/mailedForm.html?id=${manager.unique_code}" style="display: inline-block; padding: 8px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Click Here</a>
 </div>
         
 
