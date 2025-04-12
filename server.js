@@ -594,7 +594,13 @@ const simpleSchema = new mongoose.Schema({
   photo: String,
   password: {
     type: String,
-    default: "1234"
+    default: () => {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+  },
+  isBlocked:{
+    type:Boolean,
+    default:false
   },
   accountType: String,
   upiId: String,
@@ -725,12 +731,372 @@ app.get('/usersList/:id', async (req, res) => {
   try {
     const user = await User.findOne({ unique_code: req.params.id })
     const leads = await personalMailedForm.find({ _id: { $in: user.personalMailedForm } }).sort({ createdAt: -1 });
+    console.log(leads)
     res.json(leads);
 
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving leads', error });
   }
 })
+app.get('/personalmaileddelete/:id', async (req, res) => {
+  try {
+     const leads = await personalMailedForm.findByIdAndDelete(req.params.id)
+    console.log(leads)
+    res.json(leads); 
+
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving leads', error });
+  }
+})
+app.get('/uproovalmail/:id/:mangerId', async (req, res) => {
+  try {
+     const leads = await personalMailedForm.findById(req.params.id)
+     const m = await User.findOne({unique_code : req.params.mangerId})
+     console.log(leads, m)
+    uproovalmail(leads,m)
+    res.json(leads); 
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: 'Error retrieving leads', error });
+  }
+})
+app.get('/paymentConfirmationMail/:id/:mangerId', async (req, res) => {
+  try {
+     const leads = await personalMailedForm.findById(req.params.id)
+     const m = await User.findOne({unique_code : req.params.mangerId})
+     console.log(leads, m)
+     paymentConfirmationMail (leads,m)
+    res.json(leads); 
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: 'Error retrieving leads', error });
+  }
+}) 
+
+
+const paymentConfirmationMail = async (user, paymentDetails) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.hostinger.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: "feedback@findiatm.net",
+      pass: "Sanjay@9523"
+    },
+    tls: {
+      rejectUnauthorized: false,
+      ciphers: 'SSLv3'
+    }
+  });
+
+  const mailOptions = {
+    from: '"Indicash ATM" <feedback@findiatm.net>',
+    to: user.email,
+    subject: '✅ Confirmation: Application Fee Received Successfully',
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .highlight {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+            border-top: 1px solid #eeeeee;
+            padding-top: 20px;
+        }
+        .success-badge {
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>FINDI ATM - In association with Tata Indicash</h2>
+    </div>
+    
+    <div class="content">
+        <p>Dear ${user.fullName},</p>
+        
+        <p>We are pleased to confirm that your application fee payment of ₹18,600 has been successfully received and processed by our Accounts Department.</p>
+        
+        <p>This payment officially secures your position as an approved hosting partner for FINDI ATM – in association with Tata Indicash.</p>
+        
+        <div class="highlight">
+            <p><strong>📄 Payment Details:</strong></p>
+            <p>Amount: ₹18,600</p>
+            <p>Status: <span class="success-badge">✅ Received</span></p>
+         
+        </div>
+        
+        <p><strong>✅ What's Next:</strong></p>
+        <ul>
+            <li>Your ATM site booking is now locked and confirmed.</li>
+            <li>Our technical team will initiate the site evaluation and installation process.</li>
+            <li>You will receive the draft agreement and installation timeline within the next 24–48 hours.</li>
+        </ul>
+        
+        <p><strong>📆 Estimated ATM Installation:</strong> Within 15 working days from today.</p>
+        
+        <p>If you have any questions or need assistance at any step, please feel free to contact us:</p>
+        <p>📞 ${paymentDetails.mobile}<br>
+        📧 
+        
+        <p>Thank you for your cooperation and trust in FINDI ATM. We look forward to building a strong and long-term partnership.</p>
+        
+        <p>Warm regards,<br>
+        FINDI ATM Team<br>
+        In Association with Tata Indicash</p>
+        
+        <div class="footer">
+            <p><strong>📧 Email Disclaimer:</strong></p>
+            <p>This email and its contents are confidential and intended solely for the addressee. If you are not the intended recipient, please delete this message and notify us immediately. Unauthorized use or disclosure is prohibited.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log("Payment confirmation email sent successfully to", user.email);
+};
+
+
+app.get('/agreementReminderMail/:id/:mangerId', async (req, res) => {
+  try {
+     const leads = await personalMailedForm.findById(req.params.id)
+     const m = await User.findOne({unique_code : req.params.mangerId})
+     console.log(leads, m)
+     agreementReminderMail (leads,m)
+    res.json(leads); 
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: 'Error retrieving leads', error });
+  }
+}) 
+
+
+const agreementReminderMail = async (user, agreementDetails) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.hostinger.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: "feedback@findiatm.net",
+      pass: "Sanjay@9523"
+    },
+    tls: {
+      rejectUnauthorized: false,
+      ciphers: 'SSLv3'
+    }
+  });
+
+  const mailOptions = {
+    from: '"Indicash ATM" <feedback@findiatm.net>',
+    to: user.email,
+    subject: '🔔 Reminder: Agreement Fee Payment & Details of Your 18-Year Hosting Agreement',
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .header {
+            background-color: #0056b3;
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .highlight-box {
+            background-color: #f0f7ff;
+            border-left: 4px solid #0056b3;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .agreement-points {
+            margin: 15px 0;
+            padding-left: 15px;
+        }
+        .agreement-points li {
+            margin-bottom: 12px;
+            position: relative;
+            padding-left: 30px;
+        }
+        .agreement-points li:before {
+            content: "•";
+            color: #0056b3;
+            font-size: 24px;
+            position: absolute;
+            left: 0;
+            top: -4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #0056b3;
+            color: white !important;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+            border-top: 1px solid #eeeeee;
+            padding-top: 20px;
+        }
+        .icon {
+            margin-right: 8px;
+            vertical-align: middle;
+            width: 18px;
+        }
+        .urgent {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>FINDI ATM - In association with Tata Indicash</h2>
+    </div>
+    
+    <div class="content">
+        <p>Dear ${user.fullName},</p>
+        
+        <p>We hope you're doing well.</p>
+        
+        <p>We're excited to move forward with you as a hosting partner for FINDI ATM – in association with Tata Indicash. As the next crucial step in this partnership, we kindly request you to proceed with the payment of the refundable Agreement Fee of <strong>₹90,100</strong>.</p>
+        
+        <div class="highlight-box">
+            <p><strong>💼 Please note:</strong> This fee is <strong>100% refundable</strong> within 15 days after successful ATM installation and is required to finalize your hosting agreement.</p>
+        </div>
+        
+        <h3>📄 Agreement Highlights at a Glance:</h3>
+        <ul class="agreement-points">
+            <li><strong>🕒 Agreement Period:</strong> 18 Years<br>
+            The agreement ensures a stable and long-term rental income from the installed ATM on your property. The first 3 years are under a lock-in period, after which the agreement can only be terminated under specific mutually agreed conditions.</li>
+            
+            <li><strong>💰 Monthly Rent:</strong> ₹25,000 per month<br>
+            With a 10% increase every year, ensuring inflation-proof earnings.</li>
+            
+            <li><strong>💵 Advance Refundable Security Deposit:</strong> ₹11,00,000<br>
+            Paid directly to you and 100% refundable as per agreement terms.</li>
+            
+            <li><strong>🛡 Security Guards:</strong> 2 full-time guards provided by the company (₹15,000/month each – company paid).</li>
+            
+            <li><strong>🌐 Free High-Speed Internet:</strong> 100 Mbps unlimited connection installed and maintained by us.</li>
+            
+            <li><strong>🧹 Complete Site Management:</strong><br>
+            Electricity bills, maintenance, and housekeeping are fully managed by our team at no cost to you.</li>
+            
+            <li><strong>📦 ATM Installation Timeline:</strong> Within 15 days after agreement fee payment.</li>
+            
+            <li><strong>📬 Agreement Delivery:</strong> A signed hard copy will be couriered to your registered communication address for your records.</li>
+        </ul>
+        
+        <h3 class="urgent">✅ Immediate Action Required:</h3>
+        <p>To avoid any delays in the installation process, please log in to your partner portal and complete the agreement fee payment today.</p>
+        
+        <center>
+            <a href="${agreementDetails.paymentLink}" class="cta-button">MAKE PAYMENT NOW</a>
+        </center>
+        
+        <p>If you need assistance or have questions regarding the agreement terms or payment process, feel free to contact us anytime:</p>
+        
+        <p>📞 ${agreementDetails.mobile}<br>
+        
+        <p>We truly value your partnership and look forward to providing you with a consistent and worry-free rental experience over the next 18 years.</p>
+        
+        <p>Warm regards,<br>
+        <strong>FINDI ATM Team</strong><br>
+        In Association with Tata Indicash</p>
+        
+        <div class="footer">
+            <p>This is an automatically generated email. Please do not reply to this message.</p>
+            <p>© ${new Date().getFullYear()} FINDI ATM. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log("Agreement reminder email sent successfully to", user.email);
+};
+
+
+
+
+
+
+
+
+
+
+app.get('/personalmailblocked/:id', async (req, res) => {
+  try {
+    const lead = await personalMailedForm.findById(req.params.id);
+
+    if (!lead) {
+      return res.status(404).json({ message: 'Lead not found' });
+    }
+
+    // Toggle the isBlocked value
+    lead.isBlocked = !lead.isBlocked;
+
+    // Save the updated lead
+    await lead.save();
+
+    console.log(`User ${lead._id} is now ${lead.isBlocked ? 'blocked' : 'unblocked'}`);
+    res.json({ message: `User ${lead.isBlocked ? 'blocked' : 'unblocked'} successfully`, lead });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user block status', error });
+  }
+});
+ 
 app.get('/usersFromManager/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1959,13 +2325,6 @@ const sendProposalMailFromUser = async (user, manager) => {
     <a href="https://findiatm.net/mailedForm.html?id=${manager.unique_code}" style="display: inline-block; padding: 8px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Click Here</a>
 </div>
         
-
-
- 
-
-
-
-
         <div class="section">
           <h2 class="section-title">💼 Refundable Fees:</h2>
           <div class="feature"><span class="feature-icon">🧾</span> Application Fee: ₹18,600<br>  ↪️ Refunded if application not approved within 7 working days</div>
@@ -2015,6 +2374,131 @@ const sendProposalMailFromUser = async (user, manager) => {
     </html>
     `
 
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log("Email sent successfully to", user.email);
+};
+const uproovalmail = async (user, manager) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.hostinger.com",
+    port: 465,
+    secure: true,
+    auth: {
+        user: "feedback@findiatm.net",
+        pass: "Sanjay@9523"
+    },
+    tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+    }
+});
+ 
+  const mailOptions = {
+    from: '"Indicash ATM" <feedback@findiatm.net>',
+    to: user.email,
+    subject: 'Your FINDI ATM Partnership Approval',
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .highlight {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-left: 4px solid #0066cc;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>FINDI ATM - In association with Tata Indicash</h2>
+    </div>
+    
+    <div class="content">
+        <p>Dear ${user.fullName},</p>
+        
+        <p>We are pleased to inform you that your application and KYC verification have been successfully approved. Congratulations on qualifying to become a valued hosting partner of FINDI ATM – in association with Tata Indicash.</p>
+        
+        <div class="highlight">
+            <p><strong>🔐 Your Login Credentials – FINDI ATM Partner Portal</strong></p>
+            <p>🌐 Login URL:  <a href="https://findiatm.net/check-status/">https://findiatm.net/check-status/</a> </p>
+            <p>🆔 Login ID: ${user.mobile}</p>
+            <p>🔑 Password: ${user.password} </p>
+            <p><em>For your security, please change your password upon first login.</em></p>
+        </div>
+        
+        <p><strong>📌 Next Step: Confirm Your ATM Booking</strong></p>
+        <p>To reserve your ATM installation and initiate the process, please pay the refundable application fee of ₹18,600 through the partner portal.</p>
+        
+        <p><span style="color: #d32f2f; font-weight: bold;">🕒 Deadline:</span> Kindly complete the payment within the next 3 hours to lock your booking and proceed.</p>
+        
+        <p>✅ Note: This fee is fully refundable if your site is not approved within 7 working days.</p>
+        
+        <p><strong>💼 Proposal Highlights – At a Glance:</strong></p>
+        <ul>
+            <li>💰 Monthly Rent: ₹25,000 (10% annual increment)</li>
+            <li>💵 Advance Security Deposit: ₹11,00,000 (100% refundable)</li>
+            <li>📝 Agreement Period: 18 years (3-year lock-in)</li>
+            <li>🛡 Security Guards Provided: 2 (₹15,000/month each – company paid)</li>
+            <li>🌐 100 Mbps Unlimited Internet – Free</li>
+            <li>⚡ Electricity, Maintenance & Housekeeping – Fully Managed by Us</li>
+            <li>🏧 ATM Installation Timeline: Within 15 days of payment</li>
+            <li>⏱ Advance Payment Release: Within 24 hours post agreement signing</li>
+        </ul>
+        
+        <p>If you need any assistance with the login or payment process, feel free to contact our team:</p>
+        <p>📞 ${manager.mobile} <br>
+         
+        
+        <p>We appreciate your prompt action and look forward to partnering with you.</p>
+        
+        <p>Warm regards,<br>
+        FINDI ATM Team<br>
+        In Association with Tata Indicash</p>
+        
+        <div class="footer">
+            <p><strong>📜 Terms & Conditions:</strong></p>
+            <p>Application fee must be paid via the official portal within the timeline to confirm booking.</p>
+            <p>Site approval is subject to physical and technical verification.</p>
+            <p>Refunds are processed per agreement terms if installation is not feasible.</p>
+            <p>Agreement requires full site access and adherence to operational guidelines.</p>
+            
+            <p><strong>🔒 Privacy Policy:</strong></p>
+            <p>We are committed to safeguarding your personal data. All submitted information is encrypted and used exclusively for verification and legal formalities. No third-party sharing occurs without your consent.</p>
+            
+            <p><strong>📧 Email Disclaimer:</strong></p>
+            <p>This message and any attached files are intended only for the recipient. If you received it in error, please notify us and delete it. Do not disclose login details to any third party.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
   };
 
   await transporter.sendMail(mailOptions);
