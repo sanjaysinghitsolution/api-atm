@@ -1076,6 +1076,137 @@ const agreementReminderMail = async (user, agreementDetails) => {
 
 
 
+
+
+
+
+
+
+
+
+// Bank QR Schema
+const bankQRSchema = new mongoose.Schema({
+  remarks: String,
+  qr_code: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const BankQR = mongoose.model('BankQR', bankQRSchema);
+
+// Configure Multer for file uploads
+const stozzrage = multer.diskStorage({
+  destination: (req, file, cb) => {
+      cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'qr-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadsss = multer({ 
+  storage: stozzrage,
+  fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+      } else {
+          cb(new Error('Only image files are allowed!'), false);
+      }
+  }
+});
+
+// Create a new bank QR entry
+app.post('/api/banks', uploadsss.single('qr_code'), async (req, res) => {
+  try {
+      const { remarks } = req.body;
+      
+      const bankQRData = { remarks };
+      if (req.file) {
+          bankQRData.qr_code = `${req.file.filename}`;
+      }
+
+      const newBankQR = new BankQR(bankQRData);
+      await newBankQR.save();
+
+      res.status(201).json(newBankQR);
+  } catch (error) {
+      console.error('Error:', error);
+      res.status(500).json({ message: error.message });
+  }
+});
+
+// Get all bank QR entries
+app.get('/api/banks', async (req, res) => {
+  try {
+      const banks = await BankQR.find().sort({ createdAt: -1 });
+      res.json(banks);
+  } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+});
+
+// Update a bank QR entry
+app.put('/api/banks/:id', upload.single('qr_code'), async (req, res) => {
+  try {
+      const bankQR = await BankQR.findById(req.params.id);
+      if (!bankQR) {
+          return res.status(404).json({ message: 'Bank QR not found' });
+      }
+
+      bankQR.remarks = req.body.remarks;
+
+      // If new QR code is uploaded
+      if (req.file) {
+          // Delete old QR code file if exists
+          if (bankQR.qr_code) {
+              const oldFilePath = path.join(__dirname, bankQR.qr_code);
+              if (fs.existsSync(oldFilePath)) {
+                  fs.unlinkSync(oldFilePath);
+              }
+          }
+          bankQR.qr_code = `/uploads/${req.file.filename}`;
+      }
+
+      await bankQR.save();
+      res.json(bankQR);
+  } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete a bank QR entry
+app.delete('/api/banks/:id', async (req, res) => {
+  try {
+      const bankQR = await BankQR.findByIdAndDelete(req.params.id);
+      if (!bankQR) {
+          return res.status(404).json({ message: 'Bank QR not found' });
+      }
+
+      // Delete associated QR code file if exists
+      if (bankQR.qr_code) {
+          const filePath = path.join(__dirname, bankQR.qr_code);
+          if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+          }
+      }
+
+      res.json({ message: 'Bank QR deleted successfully' });
+  } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
 app.get('/personalmailblocked/:id', async (req, res) => {
   try {
     const lead = await personalMailedForm.findById(req.params.id);
