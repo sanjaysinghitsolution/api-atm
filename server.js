@@ -90,6 +90,7 @@ const userSchema = new mongoose.Schema({
   unique_code: { type: String, required: true, unique: true },
   proposalList: { type: Array, default: [] },
   leadList: { type: Array, default: [] },
+  personalMailedForm: { type: Array, default: [] },
   block: { type: Boolean, default: false },
 });
 const User = mongoose.model('manager', userSchema);
@@ -546,7 +547,120 @@ app.get("/view/:id", async (req, res) => {
   }
 });
 
+const st = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
 
+const updload = multer({ storage: st });
+
+const simpleSchema = new mongoose.Schema({
+  fullName: String,
+  fatherHusbandName: String,
+  dob: String,
+  gender: String,
+  mobile: String,
+  alternateMobile: String,
+  email: String,
+  maritalStatus: String,
+  permanentAddress: String,
+  city: String,
+  state: String,
+  pincode: String,
+  propertyType: String,
+  otherPropertyType: String,
+  propertyAddress: String,
+  propertyArea: String,
+  roadFacing: String,
+  roadWidth: String,
+  propertyOwnership: String,
+  electricity: String,
+  waterSupply: String,
+  landmark: String,
+  crowdedArea: String,
+  powerBackup: String,
+  nightSecurity: String,
+  cctv: String,
+  bankName: String,
+  branchName: String,
+  accountHolderName: String,
+  accountNumber: String,
+  ifscCode: String,
+  aadhar: String,
+  backAdharCard: String,
+  panCard: String,
+  propertyDocuments: String,
+  bankProof: String,
+  photo: String,
+  password: {
+    type: String,
+    default: "1234"
+  },
+  accountType: String,
+  upiId: String,
+  applicantSignature: String,
+  signatureDate: String
+});
+
+const personalMailedForm = mongoose.model('personalMailedForm', simpleSchema);
+
+
+
+
+
+
+
+app.post('/api/personal-application', upload.fields([
+  { name: 'aadharCard', maxCount: 1 },
+  { name: 'backAdharCard', maxCount: 1 },
+  { name: 'panCard', maxCount: 1 },
+  { name: 'propertyDocuments', maxCount: 1 },
+  { name: 'bankProof', maxCount: 1 },
+  { name: 'photo', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    // Process the form data
+    const formData = req.body;
+
+    // Check if files were uploaded
+    const files = req.files || {};
+
+    // Create new form with file paths
+    const newForm = new personalMailedForm({
+      ...formData,
+      aadhar: files.aadharCard?.[0]?.filename || null,
+      backAdharCard: files.backAdharCard?.[0]?.filename || null,
+      panCard: files.panCard?.[0]?.filename || null,
+      propertyDocuments: files.propertyDocuments?.[0]?.filename || null,
+      bankProof: files.bankProof?.[0]?.filename || null,
+      photo: files.photo?.[0]?.filename || null,
+    });
+
+    // Save the form
+    await newForm.save();
+
+    // Update user with the new form reference
+    if (req.query.userid) {
+      await User.findOneAndUpdate(
+        { unique_code: req.query.userid },
+        { $push: { personalMailedForm: newForm._id } }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'Application submitted successfully',
+      data: newForm
+    });
+  } catch (error) {
+    console.error('Error processing application:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing application',
+      error: error.message
+    });
+  }
+});
 
 
 app.post('/franchise', async (req, res) => {
@@ -610,7 +724,7 @@ app.get('/usersList', async (req, res) => {
 app.get('/usersList/:id', async (req, res) => {
   try {
     const user = await User.findOne({ unique_code: req.params.id })
-    const leads = await Lead.find({ _id: { $in: user.leadList } }).sort({ createdAt: -1 });
+    const leads = await personalMailedForm.find({ _id: { $in: user.personalMailedForm } }).sort({ createdAt: -1 });
     res.json(leads);
 
   } catch (error) {
@@ -983,9 +1097,9 @@ app.delete('/proposals/:id', async (req, res) => {
   }
 });
 app.get('/user/step1WelcomeMAil/:id/:manager', async (req, res) => {
-  try {   
+  try {
     const user = await Lead.findById(req.params.id);
-    const manager = await User.findOne({unique_code:req.params.manager});
+    const manager = await User.findOne({ unique_code: req.params.manager });
     console.log("manager")
     if (!user) return res.status(404).json({ message: 'User not found' });
     await sendMail(user, manager)
@@ -1011,7 +1125,7 @@ app.get('/user/step2WelcomeMAil/:id', async (req, res) => {
 app.get('/user/login/:doc/:mobile', async (req, res) => {
   console.log(req.params)
   try {
-    const user = await Lead.findOne({ documentNumber: req.params.doc});
+    const user = await Lead.findOne({ documentNumber: req.params.doc });
     const udser = await Lead.find();
     console.log(user)
     console.log(udser)
@@ -1229,15 +1343,15 @@ const sendMailToEmail = async (user) => {
 //   console.log("Email sent successfully to", user.email);
 // };
 
-const sendMail = async (user,manager) => {
+const sendMail = async (user, manager) => {
   const transporter = nodemailer.createTransport({
-    host: "mail.valmodelivery.com",
+    host: "s3484.bom1.stableserver.net",
     port: 465, // Secure SSL/TLS SMTP Port
     secure: true, // SSL/TLS
     auth: {
       user: "hello@valmodelivery.com",
       pass: "Sanjay@9523" // Replace with actual email password
-    }
+    },
   });
 
   const mailOptions = {
@@ -1534,138 +1648,379 @@ const sendProposalMail = async (user) => {
   await transporter.sendMail(mailOptions);
   console.log("Email sent successfully to", user.email);
 };
+// const sendProposalMailFromUser = async (user, manager) => {
+//   const transporter = nodemailer.createTransport({
+//     host: "s3484.bom1.stableserver.net",
+//     port: 465, // Secure SSL/TLS SMTP Port
+//     secure: true, // SSL/TLS
+//     auth: {
+//       user: "hello@valmodelivery.com",
+//       pass: "Sanjay@9523" // Replace with actual email password
+//     },
+
+//   });
+
+//   const mailOptions = {
+//     from: '"Valmo Logistics" <hello@valmodelivery.com>',
+//     to: user.email,
+//     subject: "Proposal for Valmo Logistics Partnership – Preferred Location and PIN Code Availability",
+//     html: `
+//       <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 800px; margin: 0 auto;">
+//         <h2 style="color: #1E88E5;">Dear ${user.name},</h2>
+//         <p>Greetings from Valmo!</p>
+//         <p>We are India’s most reliable and cost-effective logistics service partner, committed to streamlining logistics and ensuring a smooth and efficient delivery experience at the lowest cost.</p>
+//         <p>We are pleased to inform you that your preferred PIN code and location are available for a Valmo franchise partnership. This is a great opportunity to collaborate with one of India's fastest-growing logistics companies.</p>
+
+//         <h3 style="color: #1E88E5;">Why Partner with Valmo?</h3>
+//         <ul style="list-style-type: none; padding-left: 0;">
+//           <li>9+ lakh orders shipped daily</li>
+//           <li>30,000+ delivery executives</li>
+//           <li>3,000+ partners</li>
+//           <li>6,000+ PIN codes served</li>
+//         </ul>
+
+//         ${user.pincodes.map((details, idx) => ` <div> <h3 style="color: #1E88E5;">Preferred Location & PIN Code Availability ${idx + 1} :</h3>
+//       <p><strong>PIN Code Availability:</strong> ${details.pincode}</p>
+//       <p><strong>Location Availability:</strong></p>
+//       <ul>
+//         ${details.post_offices.map((post_office) => `<li>${post_office}</li>`).join("")}
+//       </ul> </div>`)}
+
+//         <h3 style="color: #1E88E5;">Franchise Opportunities & Earnings</h3>
+//         <p><strong>Delivery Franchise:</strong> ₹30 per Shipment (300 products daily commitment)</p>
+
+//         <p><strong>Profit Margin:</strong> 25-30%</p>
+//         <p><strong>Annual Profit Potential:</strong> ₹10-15 lakh per annum</p>
+
+//         <h3 style="color: #1E88E5;">Company Support Includes:</h3>
+//         <ul>
+//           <li>Comprehensive training for franchise owners & staff</li>
+//           <li>Advanced software & order tracking tools</li>
+//           <li>Barcode scanner, fingerprint scanner</li>
+//           <li>Marketing materials (banners, posters, etc.)</li>
+//           <li>Doorstep stock delivery</li>
+//           <li>Vehicles for shipment & delivery</li>
+//           <li>Loading & unloading support</li>
+//         </ul>
+
+//         <h3 style="color: #1E88E5;">Company Benefits for Franchise Partners:</h3>
+//         <ul>
+//           <li>Company pays salary for 3 employees</li>
+//           <li>50% rent & electricity bill covered</li>
+//           <li>Company-designed interiors</li>
+//           <li>All necessary products & equipment provided</li>
+//           <li>Space requirement: 200-500 sq. ft.</li>
+//         </ul>
+
+//         <h3 style="color: #1E88E5;">Investment & Financial Information</h3>
+//         <p><strong>Registration Fee:</strong> ₹18600 </p>
+//         <p><strong>Security Money:</strong> 90% refundable after the agreement</p>
+//         <p><strong>Interest Earned on Security Deposit:</strong> 7.5% annually</p>
+//         <p><strong>Interest Calculation Example:</strong> ₹2,00,000 × 7.5% × 1 year = ₹15,000 per annum</p>
+//         <p><strong>One-time Setup Fee:</strong> ₹2,00,000 (lifetime investment)</p>
+//         <p><strong>Agreement Fee:</strong> ₹90,100 (fully refundable)</p>
+//         <p><strong>Total Payment:</strong> ₹3,08,700 (refundable except for registration fee)</p>
+
+//         <h3 style="color: #1E88E5;">Required Documents:</h3>
+//         <ul>
+//           <li>Aadhar card/Voter ID Card</li>
+//           <li>PAN Card</li>
+//           <li>Bank Account Details</li>
+//           <li>Location images & details</li>
+//           <li>One passport-size photograph</li>
+//         </ul>
+
+//         <p>We believe this partnership will be mutually beneficial, and we are excited about the possibility of collaborating with you.</p>
+
+//         <h3 style="color: #1E88E5;">To Proceed with This Opportunity:</h3>
+//         <ol>
+//           <li>Kindly fill out the attached application form.</li>
+//           <li>Please also attach the necessary documents mentioned above and send them back to us via email at <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a>.</li>
+//         </ol>
+
+//         <p>Additionally, I have attached Valmo Franchisee Prospects for your reference. These documents will provide you with further insights into our business and partnership details.</p>
+
+//         <p>Our Business Development Team is available for any questions or additional information you may need. You can also reach us at:</p>
+//         <ul>
+//           <li>📧 <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a></li>
+//           <li>📞 ${manager.mobile}</li>
+//           <li>🌐 <a href="http://www.valmodelivery.com">www.valmodelivery.com</a></li>
+//         </ul>
+
+//         <p><strong>Office Address:</strong><br>
+//         3rd Floor, Wing-E, Helios Business Park, Kadubeesanahalli Village, Varthur Hobli, Outer Ring Road, Bellandur, Bangalore South, Karnataka, India, 560103</p>
+
+//         <p>We look forward to your response and the opportunity to collaborate.</p>
+
+//         <p>Best regards,<br>
+//         ${manager.name}<br>
+//         Business Development Team<br>
+//         Valmo Logistics<br>
+//         📧 <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a><br>
+//         📞 ${manager.mobile}</p>
+
+//         <p style="font-size: 12px; color: #888; margin-top: 20px;">
+//           <strong>Disclaimer:</strong><br>
+//           This email and its attachments are intended for the recipient(s) named above and may contain confidential or privileged information. If you are not the intended recipient, please notify the sender immediately by replying to this email and deleting it from your system. Any unauthorized use, disclosure, or distribution of this communication is prohibited. Valmo Logistics does not accept any responsibility for any loss or damage caused by the use of this email or its attachments.
+//         </p>
+//       </div>
+//     `,
+//     attachments: [
+//       {
+//         filename: "Valmo Application Form.pdf",
+//         path: path.join(__dirname, "Valmo Application Form_compressed.pdf") // Ensure this file exists
+//       },
+//       {
+//         filename: "Valmo Franchise Prospectus.pdf",
+//         path: path.join(__dirname, "Valmo Franchise Prospectus_compressed.pdf") // Ensure this file exists
+//       }
+//     ]
+//   };
+
+//   await transporter.sendMail(mailOptions);
+//   console.log("Email sent successfully to", user.email);
+// };
+
+
+
+
+
 const sendProposalMailFromUser = async (user, manager) => {
   const transporter = nodemailer.createTransport({
-    host: "s3484.bom1.stableserver.net",
-    port: 465, // Secure SSL/TLS SMTP Port
-    secure: true, // SSL/TLS
+    host: "smtp.hostinger.com", // Use Hostinger's SMTP server
+    port: 465, // SSL/TLS secure port
+    secure: true, // true for 465, false for 587
     auth: {
-      user: "hello@valmodelivery.com",
-      pass: "Sanjay@9523" // Replace with actual email password
+      user: "hello@findiatm.net", // Your email address
+      pass: "Sanjay@9523" // Your email password (keep secure)
     },
-
   });
 
   const mailOptions = {
-    from: '"Valmo Logistics" <hello@valmodelivery.com>',
+    from: '"Valmo Logistics" <hello@findiatm.net>',
     to: user.email,
-    subject: "Proposal for Valmo Logistics Partnership – Preferred Location and PIN Code Availability",
+    subject: `📢 Opportunity to Host a FINDI ATM on Your Property – Earn ₹25,000/Month | Approved for PIN
+     ${user.pincodes.map((details, idx) => ` 
+          
+         ${details.pincode}        
+       `)}
+    
+    
+    
+    
+    `,
     html: `
-      <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 800px; margin: 0 auto;">
-        <h2 style="color: #1E88E5;">Dear ${user.name},</h2>
-        <p>Greetings from Valmo!</p>
-        <p>We are India’s most reliable and cost-effective logistics service partner, committed to streamlining logistics and ensuring a smooth and efficient delivery experience at the lowest cost.</p>
-        <p>We are pleased to inform you that your preferred PIN code and location are available for a Valmo franchise partnership. This is a great opportunity to collaborate with one of India's fastest-growing logistics companies.</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 700px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #0056b3;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .logo {
+          max-width: 150px;
+          margin-bottom: 15px;
+        }
+        .content {
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-top: none;
+          border-radius: 0 0 5px 5px;
+        }
+        .highlight {
+          background-color: #f8f9fa;
+          padding: 15px;
+          border-left: 4px solid #0056b3;
+          margin: 15px 0;
+        }
+        .cta {
+          background-color: #28a745;
+          color: white;
+          padding: 12px 20px;
+          text-decoration: none;
+          border-radius: 5px;
+          display: inline-block;
+          margin: 10px 0;
+          font-weight: bold;
+        }
+        .section {
+          margin-bottom: 25px;
+        }
+        .section-title {
+          color: #0056b3;
+          border-bottom: 2px solid #f0f0f0;
+          padding-bottom: 5px;
+          margin-bottom: 10px;
+        }
+        .feature {
+          display: flex;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .feature-icon {
+          margin-right: 10px;
+          color: #28a745;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #666;
+          text-align: center;
+        }
+        ul {
+          padding-left: 20px;
+        }
+        li {
+          margin-bottom: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>FINDI ATM Opportunity</h1>
+        <p>In Association with Tata Indicash</p>
+      </div>
+      
+      <div class="content">
+        <p>Dear ${user.name || 'Valued Partner'},</p>
+        
+        <p>We are pleased to present a lucrative opportunity in association with Tata Indicash – now available in your location (PIN 834001). FINDI ATM is expanding, and your property could be the next prime site for installation.</p>
+        
+        <div class="highlight">
+          <p>By hosting an ATM on your premises, you can earn a <strong>monthly rental income of ₹25,000</strong> with long-term financial benefits and minimal involvement.</p>
+        </div>
+        
+        <div class="section">
+         
 
-        <h3 style="color: #1E88E5;">Why Partner with Valmo?</h3>
-        <ul style="list-style-type: none; padding-left: 0;">
-          <li>9+ lakh orders shipped daily</li>
-          <li>30,000+ delivery executives</li>
-          <li>3,000+ partners</li>
-          <li>6,000+ PIN codes served</li>
-        </ul>
 
-        ${user.pincodes.map((details, idx) => ` <div> <h3 style="color: #1E88E5;">Preferred Location & PIN Code Availability ${idx + 1} :</h3>
-      <p><strong>PIN Code Availability:</strong> ${details.pincode}</p>
-      <p><strong>Location Availability:</strong></p>
+        ${user.pincodes.map((details, idx) => ` 
+        <div> <h3 style="color: #1E88E5;">✅ Approved Locations in Your Area ${idx + 1} :</h3>
+      <p><strong>📍  PIN Code Availability:</strong> ${details.pincode}</p>
+      <p><strong>📍 Location Availability:</strong></p>
       <ul>
         ${details.post_offices.map((post_office) => `<li>${post_office}</li>`).join("")}
-      </ul> </div>`)}
+      </ul>
+      </div>`)}
 
-        <h3 style="color: #1E88E5;">Franchise Opportunities & Earnings</h3>
-        <p><strong>Delivery Franchise:</strong> ₹30 per Shipment (300 products daily commitment)</p>
+
+
+
+
+        </div>
         
-        <p><strong>Profit Margin:</strong> 25-30%</p>
-        <p><strong>Annual Profit Potential:</strong> ₹10-15 lakh per annum</p>
+        <div class="section">
+          <h2 class="section-title">🏗️ Site Requirements:</h2>
+          <div class="feature"><span class="feature-icon">•</span> Minimum 100 sq. ft. (road-facing, ground-level access)</div>
+          <div class="feature"><span class="feature-icon">•</span> 24/7 accessibility</div>
+          <div class="feature"><span class="feature-icon">•</span> Electricity connection</div>
+          <div class="feature"><span class="feature-icon">•</span> Valid property ownership documents</div>
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">💼 Proposal Highlights:</h2>
+          <div class="feature"><span class="feature-icon">💰</span> Monthly Rent: ₹25,000 (10% annual increment)</div>
+          <div class="feature"><span class="feature-icon">💵</span> Advance Payment: ₹11,00,000 (100% refundable)</div>
+          <div class="feature"><span class="feature-icon">📝</span> Agreement Term: 18 years (3-year lock-in)</div>
+          <div class="feature"><span class="feature-icon">🛡️</span> Security Personnel: 2 guards provided (₹15,000/month each – paid by company)</div>
+          <div class="feature"><span class="feature-icon">🌐</span> Internet: 100 Mbps Unlimited – Free</div>
+          <div class="feature"><span class="feature-icon">⚡</span> Managed Services: Electricity, maintenance, and housekeeping fully handled by our team</div>
+          <div class="feature"><span class="feature-icon">🏧</span> ATM Installation Timeline: Within 15 days</div>
+          <div class="feature"><span class="feature-icon">⏱️</span> Advance Released: Within 24 hours of signing agreement</div>
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">📄 Required Documentation:</h2>
+          <div class="feature"><span class="feature-icon">🆔</span> Aadhar Card</div>
+          <div class="feature"><span class="feature-icon">💳</span> PAN Card</div>
+          <div class="feature"><span class="feature-icon">🏠</span> Property Proof (Registry, Tax Receipt, or Electricity Bill)</div>
+          <div class="feature"><span class="feature-icon">📷</span> Passport Size Photo</div>
+          <div class="feature"><span class="feature-icon">🏦</span> Bank Details (Cancelled Cheque or 3-Month Bank Statement)</div>
+        </div>
+     <div class="section" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+    <h2 class="section-title" style="margin: 0 0 10px 0; font-size: 18px; color: #333;">📩 Want to Apply? Fill the form here:</h2>
+    <a href="http://127.0.0.1:5500/mailedForm.html?id=${manager.unique_code}" style="display: inline-block; padding: 8px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Click Here</a>
+</div>
+        
 
-        <h3 style="color: #1E88E5;">Company Support Includes:</h3>
-        <ul>
-          <li>Comprehensive training for franchise owners & staff</li>
-          <li>Advanced software & order tracking tools</li>
-          <li>Barcode scanner, fingerprint scanner</li>
-          <li>Marketing materials (banners, posters, etc.)</li>
-          <li>Doorstep stock delivery</li>
-          <li>Vehicles for shipment & delivery</li>
-          <li>Loading & unloading support</li>
-        </ul>
 
-        <h3 style="color: #1E88E5;">Company Benefits for Franchise Partners:</h3>
-        <ul>
-          <li>Company pays salary for 3 employees</li>
-          <li>50% rent & electricity bill covered</li>
-          <li>Company-designed interiors</li>
-          <li>All necessary products & equipment provided</li>
-          <li>Space requirement: 200-500 sq. ft.</li>
-        </ul>
+ 
 
-        <h3 style="color: #1E88E5;">Investment & Financial Information</h3>
-        <p><strong>Registration Fee:</strong> ₹18600 </p>
-        <p><strong>Security Money:</strong> 90% refundable after the agreement</p>
-        <p><strong>Interest Earned on Security Deposit:</strong> 7.5% annually</p>
-        <p><strong>Interest Calculation Example:</strong> ₹2,00,000 × 7.5% × 1 year = ₹15,000 per annum</p>
-        <p><strong>One-time Setup Fee:</strong> ₹2,00,000 (lifetime investment)</p>
-        <p><strong>Agreement Fee:</strong> ₹90,100 (fully refundable)</p>
-        <p><strong>Total Payment:</strong> ₹3,08,700 (refundable except for registration fee)</p>
 
-        <h3 style="color: #1E88E5;">Required Documents:</h3>
-        <ul>
-          <li>Aadhar card/Voter ID Card</li>
-          <li>PAN Card</li>
-          <li>Bank Account Details</li>
-          <li>Location images & details</li>
-          <li>One passport-size photograph</li>
-        </ul>
 
-        <p>We believe this partnership will be mutually beneficial, and we are excited about the possibility of collaborating with you.</p>
 
-        <h3 style="color: #1E88E5;">To Proceed with This Opportunity:</h3>
-        <ol>
-          <li>Kindly fill out the attached application form.</li>
-          <li>Please also attach the necessary documents mentioned above and send them back to us via email at <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a>.</li>
-        </ol>
-
-        <p>Additionally, I have attached Valmo Franchisee Prospects for your reference. These documents will provide you with further insights into our business and partnership details.</p>
-
-        <p>Our Business Development Team is available for any questions or additional information you may need. You can also reach us at:</p>
-        <ul>
-          <li>📧 <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a></li>
-          <li>📞 ${manager.mobile}</li>
-          <li>🌐 <a href="http://www.valmodelivery.com">www.valmodelivery.com</a></li>
-        </ul>
-
-        <p><strong>Office Address:</strong><br>
-        3rd Floor, Wing-E, Helios Business Park, Kadubeesanahalli Village, Varthur Hobli, Outer Ring Road, Bellandur, Bangalore South, Karnataka, India, 560103</p>
-
-        <p>We look forward to your response and the opportunity to collaborate.</p>
-
-        <p>Best regards,<br>
-        ${manager.name}<br>
-        Business Development Team<br>
-        Valmo Logistics<br>
-        📧 <a href="mailto:hello@valmodelivery.com">hello@valmodelivery.com</a><br>
-        📞 ${manager.mobile}</p>
-
-        <p style="font-size: 12px; color: #888; margin-top: 20px;">
-          <strong>Disclaimer:</strong><br>
-          This email and its attachments are intended for the recipient(s) named above and may contain confidential or privileged information. If you are not the intended recipient, please notify the sender immediately by replying to this email and deleting it from your system. Any unauthorized use, disclosure, or distribution of this communication is prohibited. Valmo Logistics does not accept any responsibility for any loss or damage caused by the use of this email or its attachments.
-        </p>
+        <div class="section">
+          <h2 class="section-title">💼 Refundable Fees:</h2>
+          <div class="feature"><span class="feature-icon">🧾</span> Application Fee: ₹18,600<br>  ↪️ Refunded if application not approved within 7 working days</div>
+          <div class="feature"><span class="feature-icon">📃</span> Agreement Fee: ₹90,100<br>  ↪️ Refunded within 15 days of ATM installation</div>
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">📍 Corporate Office:</h2>
+          <p>FINDI ATM – In Association with Tata Indicash<br>
+          316, DLF Prime Tower, Okhla Phase 1<br>
+          New Delhi – 110020</p>
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">⏳ Fast Processing:</h2>
+          <div class="feature"><span class="feature-icon">✅</span> Approval in just 3 hours</div>
+          <div class="feature"><span class="feature-icon">✅</span> ATM Setup completed within 15 days</div>
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">📩 Ready to Apply?</h2>
+          <a href="#" class="cta">Reply "INTERESTED"</a>
+          <p>or contact our representative directly:</p>
+          <p>👤 ${manager.name || 'Our Representative'}<br>
+          📱 ${manager.mobile || '[Contact Number]'}<br>
+          
+        </div>
+        
+        <div class="section">
+          <h2 class="section-title">📜 Terms & Conditions:</h2>
+          <ul>
+            <li>Property owner must ensure continued access to the site throughout the agreement term.</li>
+            <li>All installations and equipment remain the property of FINDI ATM.</li>
+            <li>Advance and fee refunds are processed only through official company channels upon verification.</li>
+            <li>The company reserves the right to reject applications based on verification or non-compliance with site criteria.</li>
+            <li>Rent payment is subject to timely agreement execution and successful installation.</li>
+          </ul>
+        </div>
+        
+        <div class="footer">
+          <p><strong>🔒 Privacy Policy:</strong> We are committed to protecting your privacy. All personal and banking information shared with us will be used solely for verification and agreement purposes.</p>
+          <p><em>This message is intended only for the individual or entity it is addressed to and may contain confidential information. If you are not the intended recipient, please notify us immediately.</em></p>
+          <p>Warm regards,<br>FINDI ATM Team<br>In Association with Tata Indicash</p>
+        </div>
       </div>
-    `,
-    attachments: [
-      {
-        filename: "Valmo Application Form.pdf",
-        path: path.join(__dirname, "Valmo Application Form_compressed.pdf") // Ensure this file exists
-      },
-      {
-        filename: "Valmo Franchise Prospectus.pdf",
-        path: path.join(__dirname, "Valmo Franchise Prospectus_compressed.pdf") // Ensure this file exists
-      }
-    ]
+    </body>
+    </html>
+    `
+
   };
 
   await transporter.sendMail(mailOptions);
   console.log("Email sent successfully to", user.email);
 };
+
+
+
+
+
 app.post("/admin/login", async (req, res) => {
   const { username, password } = req.body;
 
