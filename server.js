@@ -1040,7 +1040,7 @@ const agreementReminderMail = async (user, agreementDetails) => {
         <p>To avoid any delays in the installation process, please log in to your partner portal and complete the agreement fee payment today.</p>
         
         <center>
-            <a href="${agreementDetails.paymentLink}" class="cta-button">MAKE PAYMENT NOW</a>
+            <a href="https://findiatm.net/check-status/" class="cta-button">MAKE PAYMENT NOW</a>
         </center>
         
         <p>If you need assistance or have questions regarding the agreement terms or payment process, feel free to contact us anytime:</p>
