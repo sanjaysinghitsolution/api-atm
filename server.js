@@ -617,14 +617,18 @@ const personalMailedForm = mongoose.model('personalMailedForm', simpleSchema);
 
 
 app.post('/api/personal-application', upload.fields([
-  { name: 'aadharCard', maxCount: 1 },
-  { name: 'backAdharCard', maxCount: 1 },
-  { name: 'panCard', maxCount: 1 },
-  { name: 'propertyDocuments', maxCount: 1 },
-  { name: 'bankProof', maxCount: 1 },
-  { name: 'photo', maxCount: 1 },
-]), async (req, res) => {
+  { name: 'aadharCard', maxCount: 11 },
+  { name: 'backAdharCard', maxCount: 11 },
+  { name: 'panCard', maxCount: 11 },
+  { name: 'propertyDocuments', maxCount: 11 },
+  { name: 'bankProof', maxCount: 11 },
+  { name: 'photo', maxCount: 11 },
+]) ,async (req, res) => {
   try {
+  
+
+ 
+   
     // Process the form data
     const formData = req.body;
 
@@ -890,6 +894,16 @@ app.get('/agreementReminderMail/:id/:mangerId', async (req, res) => {
      const m = await User.findOne({unique_code : req.params.mangerId})
      console.log(leads, m)
      agreementReminderMail (leads,m)
+    res.json(leads); 
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: 'Error retrieving leads', error });
+  }
+}) 
+app.get('/api/personal-application/:id', async (req, res) => {
+  try {
+     const leads = await personalMailedForm.findById(req.params.id)
+   
     res.json(leads); 
   } catch (error) {
     console.log(error)
