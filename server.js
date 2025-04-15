@@ -2693,6 +2693,29 @@ app.post("/admin/login", async (req, res) => {
 
   return res.status(400).json({ message: "Admin not found" });
 });
+app.post("/check-statusss", async (req, res) => {
+  const { full_name, pin_code } = req.body;
+
+  if (!full_name || !pin_code) {
+    return res.status(400).json({ message: "Missing full name or pin code" });
+  }
+
+  try {
+    const per = await personalMailedForm.find({   });
+    console.log(per)
+    const person = await personalMailedForm.findOne({ mobile: full_name, password: pin_code });
+
+    if (person) {
+      return res.status(200).json({ message: "Login successful", id: person._id });
+    } else {
+      return res.status(400).json({ message: "user not found" });
+    }
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 // Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
