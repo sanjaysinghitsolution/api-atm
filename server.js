@@ -612,6 +612,9 @@ const simpleSchema = new mongoose.Schema({
   },
   accountType: String,
   upiId: String,
+  approvalNote:String,
+  agreementNote:String,
+
   applicantSignature: String,
   signatureDate: String
 });
@@ -763,6 +766,8 @@ app.get('/personalmaileddelete/:id', async (req, res) => {
 app.get('/uproovalmail/:id/:mangerId', async (req, res) => {
   try {
      const leads = await personalMailedForm.findById(req.params.id)
+     leads?.approvalNote="Approved"
+     await leads.save()
      const m = await User.findOne({unique_code : req.params.mangerId})
      console.log(leads, m)
     uproovalmail(leads,m)
@@ -899,6 +904,8 @@ const paymentConfirmationMail = async (user, paymentDetails) => {
 app.get('/agreementReminderMail/:id/:mangerId', async (req, res) => {
   try {
      const leads = await personalMailedForm.findById(req.params.id)
+     leads?.agreementNote="Approved"
+     await leads.save()
      const m = await User.findOne({unique_code : req.params.mangerId})
      console.log(leads, m)
      agreementReminderMail (leads,m)
