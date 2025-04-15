@@ -41,7 +41,7 @@ const LeadSchema = new mongoose.Schema({
   follow1: {
     type: Boolean,
     default: false
-  },
+  }, 
   follow2: {
     type: Boolean,
     default: false
@@ -601,6 +601,14 @@ const simpleSchema = new mongoose.Schema({
   isBlocked:{
     type:Boolean,
     default:false
+  },
+  bankRemark:{
+    type:String,  
+    default:""
+  },
+  bankQr:{
+    type:String,  
+    default:""
   },
   accountType: String,
   upiId: String,
@@ -1206,6 +1214,25 @@ app.delete('/api/banks/:id', async (req, res) => {
 
       res.json({ message: 'Bank QR deleted successfully' });
   } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+});
+app.delete('/api/banksAiign/:id/:managerId', async (req, res) => {
+  try {
+      const bankQR = await BankQR.findById(req.params.id);
+      const personal = await personalMailedForm.findById(req.params.managerId);
+      if (!bankQR) {
+          return res.status(404).json({ message: 'Bank QR not found' });
+      }
+
+      personal.bankRemark=bankQR.remarks,
+      personal.bankQr= bankQR.qr_code ,  
+   
+       await personal.save()
+
+      res.json({ message: 'Bank QR Assigned successfully' });
+  } catch (error) {
+    console.log(error)
       res.status(500).json({ message: error.message });
   }
 });
